@@ -19,43 +19,66 @@ export class PoStatusService {
     private grnDetailModel: Model<GrnDetail>,
   ) {}
 
-  async generateReport() {
-    // 1. Fetch all purchase orders
-    const masters = await this.poMasterModel.find().lean();
+  // -----------------------------
+  // REUSABLE FILTERED REPORT LOGIC
+  // -----------------------------
+  async generateFilteredReport(filter: any) {
+    const masters = await this.poMasterModel.find(filter).lean();
 
     const report = [];
 
     for (const master of masters) {
-      const poId = master._id;   // ObjectId
-      const poNo = master.po_no; // String Po No
+      const poId = master._id;
+      const poNo = master.po_no;
 
-      // 2. Fetch PO Detail records for this PO
-      const poDetails = await this.poDetailModel.find({ poId }).lean();
+      // Fetch PO detail items
+      const details = await this.poDetailModel.find({ poId }).lean();
 
-      // 3. Fetch GRN details for this PO
-      const grnDetails = await this.grnDetailModel.find({ poId }).lean();
+      // Fetch GRN detail entries for this PO
+      const grn = await this.grnDetailModel.find({ poId }).lean();
 
-      for (const item of poDetails) {
+      for (const item of details) {
         const productId = item.pro_id;
 
-        // Sum received qty for this product
-        const receivedQty = grnDetails
+        const receivedQty = grn
           .filter(g => g.pro_id === productId)
           .reduce((sum, g) => sum + g.qty, 0);
 
-        const orderedQty = item.qty;
-
         report.push({
+          po_id: poId,
           po_no: poNo,
           sup_id: master.sup_id,
           pro_id: productId,
-          ordered_qty: orderedQty,
+          ordered_qty: item.qty,
           received_qty: receivedQty,
-          pending_qty: orderedQty - receivedQty,
+          pending_qty: item.qty - receivedQty,
         });
       }
     }
 
     return report;
+  }
+
+  // -----------------------------
+  // FILTER BY PO ID
+  // -----------------------------
+  async getReportByPoId(poId: string) {
+    return this.generateFilteredReport({
+      _id: new Types.ObjectId(poId),
+    });
+  }
+
+  // -----------------------------
+  // FILTER BY PO NUMBER
+  // -----------------------------
+  async getReportByPoNo(poNo: string) {
+    return this.generateFilteredReport({ po_no: poNo });
+  }
+
+  // -----------------------------
+  // FULL REPORT (ALL PURCHASE ORDERS)
+  // -----------------------------
+  async generateReport() {
+    return this.generateFilteredReport({});
   }
 }
