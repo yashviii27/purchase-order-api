@@ -10,7 +10,7 @@ export class GrnDetailService {
     @InjectModel(GrnDetail.name)
     private readonly model: Model<GrnDetailDocument>,
   ) {}
-
+  
   // -------------------------------
   // CREATE GRN DETAIL
   // -------------------------------
